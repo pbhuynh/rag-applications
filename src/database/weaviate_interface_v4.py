@@ -1,4 +1,5 @@
 from weaviate.classes.init import Auth
+from weaviate.classes.init import AdditionalConfig, Timeout
 from weaviate.collections.classes.internal import (MetadataReturn, QueryReturn,
                                                    MetadataQuery)
 import weaviate
@@ -56,7 +57,8 @@ class WeaviateWCS:
         else: 
             self._client = weaviate.connect_to_wcs(cluster_url=endpoint, 
                                                    auth_credentials=Auth.api_key(api_key),
-                                                   skip_init_checks=True) 
+                                                   skip_init_checks=True,
+                                                   additional_config=AdditionalConfig(timeout=Timeout(init=90, query=90, insert=180))) 
         self.model_name_or_path = model_name_or_path
         if self.model_name_or_path in self.OPENAI_EMBEDDING_MODELS:
             if not openai_api_key:
@@ -462,7 +464,7 @@ class WeaviateIndexer:
         start = time.perf_counter()
         completed_job = True
         
-        with collection.batch.dynamic() as batch:
+        with collection.batch.fixed_size(batch_size=10, concurrent_requests=2) as batch:
             for doc in tqdm(data):
                 batch.add_object(properties={k:v for k,v in doc.items() if k != vector_property},
                                  vector=doc[vector_property])
